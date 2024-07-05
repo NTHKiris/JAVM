@@ -1,0 +1,7 @@
+iconst 1
+iconst 2
+iconst 3
+imul
+iadd
+fconst 4.0
+fsub 
