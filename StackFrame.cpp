@@ -7,7 +7,7 @@ using namespace std;
 void StackFrame::printOperandStack()
 {
     cout << "Operand Stack: <";
-    for (size_t i = 0; i < opStackSize; ++i)
+    for (int i = 0; i < opStackSize; ++i)
     {
         if (i > 0)
             cout << ", ";
@@ -76,7 +76,7 @@ void StackFrame::pushToOpStack(float value, int type)
         throw StackFull(line);
     }
     opStack[opStackSize].value = static_cast<float>(value);
-    opStack[opStackSize].type =  type;
+    opStack[opStackSize].type = type;
 
     opStackSize++;
 }
@@ -172,10 +172,18 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
         else if (instruct == "store")
         {
             int index = stoi(argument);
-            Element e = popFromOpStack();
-            if (type != e.type)
+            if (index % 2 == 0)
+            {
+                int index = stoi(argument);
+                Element e = popFromOpStack();
+                if (type != e.type)
+                    throw TypeMisMatch(line);
+                storeToLocalVar(index, e.value, e.type);
+            }
+            else
+            {
                 throw TypeMisMatch(line);
-            storeToLocalVar(index, e.value, e.type);
+            }
         }
         else if (instruct == "load")
         {
@@ -222,9 +230,9 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
         Element e2 = popFromOpStack();
         // if (type != e2.type)
         //     throw TypeMisMatch(line);
-          if (type == 0 && e1.type == 1 )
+        if (type == 0 && e1.type == 1)
             throw TypeMisMatch(line);
-        if (type == 0 && e2.type == 1 )
+        if (type == 0 && e2.type == 1)
             throw TypeMisMatch(line);
         if (e1.type != e2.type)
         {
@@ -232,7 +240,7 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
         }
         float x1 = e1.value;
         float x2 = e2.value;
-        if (instruct ==  "add")
+        if (instruct == "add")
         {
             pushToOpStack(x1 + x2, type);
         }
@@ -253,11 +261,79 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
             pushToOpStack(x2 / x1, type);
         }
     }
+    if (instruct == "rem" || instruct == "and" || instruct == "or" || instruct == "eq" || instruct == "neq" || instruct == "lt" || instruct == "gt")
+    {
+
+        Element e1 = popFromOpStack();
+        Element e2 = popFromOpStack();
+        float x1 = e1.value;
+        float x2 = e2.value;
+
+        if (type != e1.type)
+            throw TypeMisMatch(line);
+        if (type != e2.type)
+            throw TypeMisMatch(line);
+
+        if (instruct == "rem")
+        {
+            if (e1.value == 0)
+                throw DivideByZero(line);
+            int x = ((int)x2 % (int)x1);
+            pushToOpStack(x, type);
+        }
+
+        if (instruct == "and")
+        {
+            int x = (int)x1 & (int)x2;
+            pushToOpStack(x, type);
+        }
+
+        if (instruct == "or")
+        {
+            int x = (int)x1 | (int)x2;
+            pushToOpStack(x, type);
+        }
+
+        if (instruct == "eq")
+        {
+            int x = (int)x1 == (int)x2 ? 1 : 0;
+            pushToOpStack(x, type);
+        }
+
+        if (instruct == "neq")
+        {
+            int x = (int)x1 != (int)x2 ? 1 : 0;
+            pushToOpStack(x, type);
+        }
+
+        if (instruct == "lt")
+        {
+            int x = (int)x2 < (int)x1 ? 1 : 0;
+            pushToOpStack(x, type);
+        }
+        if (instruct == "gt")
+        {
+            int x = (int)x2 > (int)x1 ? 1 : 0;
+            pushToOpStack(x, type);
+        }
+    }
+    if (instruct == "bnot" || instruct == "neg")
+    {
+        Element e = popFromOpStack();
+        float x = e.type;
+        if(type!=e.type)  throw TypeMisMatch(line);
+        if(instruct == "bnot"){
+            x==0 ? pushToOpStack(1,type):pushToOpStack(0,type);
+        }   
+        if(instruct == "neg"){
+            pushToOpStack(-e.value,type);
+        }
+    }
 }
 
 void StackFrame::getElement(const string &inputLine, string &instruction, string &argument)
 {
-    int pos = inputLine.find(' ');
+    size_t pos = inputLine.find(' ');
     if (pos != string::npos)
     {
         instruction = inputLine.substr(0, pos);
@@ -285,7 +361,7 @@ void StackFrame::run(string filename)
                argument = "";
         cout << "Processing line " << line << ": " << inputLine << endl;
         getElement(inputLine, instruction, argument);
-        // cout<<instruction<<" "+argument<<endl;
+        cout<<instruction<<" "+argument<<endl;
         processInstruction(instruction, argument);
         printLocalVariables();
         printOperandStack();

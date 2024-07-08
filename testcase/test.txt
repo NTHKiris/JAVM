@@ -1,7 +1,5 @@
-iconst 1
-iconst 2
-iconst 3
-imul
-iadd
-fconst 4.0
-fsub 
+iconst 5
+iconst 6
+iconst 0
+fconst 0.0
+fneg
