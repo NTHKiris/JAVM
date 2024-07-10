@@ -217,7 +217,28 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
             Element e = popFromOpStack();
             if (type != e.type)
                 throw TypeMisMatch(line);
-            pushToOpStack(e.value, 0);
+            const float INT_MAX_F = 2147483647.0f;
+            const float INT_MIN_F = -2147483648.0f;
+
+            if (e.value > INT_MAX_F || e.value < INT_MIN_F)
+            {
+                throw UndefinedVariable(line);
+            }
+            int x;
+            if (e.value == 2147483647.0f)
+            {
+                x = 2147483647;
+            }
+            else if (e.value == -2147483648.0f)
+            {
+                x = -2147483648;
+            }
+            else
+            {
+                x = (int)(e.value);
+            }
+
+            pushToOpStack(x, 0);
         }
     }
 
@@ -321,12 +342,15 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
     {
         Element e = popFromOpStack();
         float x = e.type;
-        if(type!=e.type)  throw TypeMisMatch(line);
-        if(instruct == "bnot"){
-            x==0 ? pushToOpStack(1,type):pushToOpStack(0,type);
-        }   
-        if(instruct == "neg"){
-            pushToOpStack(-e.value,type);
+        if (type != e.type)
+            throw TypeMisMatch(line);
+        if (instruct == "bnot")
+        {
+            x == 0 ? pushToOpStack(1, type) : pushToOpStack(0, type);
+        }
+        if (instruct == "neg")
+        {
+            pushToOpStack(-e.value, type);
         }
     }
 }
@@ -346,7 +370,8 @@ void StackFrame::getElement(const string &inputLine, string &instruction, string
 }
 void StackFrame::run(string filename)
 {
-    string filepath = "testcase/" + filename;
+    // string filepath = "testcase/" + filename;
+    string filepath =  filename;
     ifstream file(filepath);
     if (!file.is_open())
     {
@@ -359,12 +384,12 @@ void StackFrame::run(string filename)
         line++;
         string instruction = "",
                argument = "";
-        cout << "Processing line " << line << ": " << inputLine << endl;
+        // cout << "Processing line " << line << ": " << inputLine << endl;
         getElement(inputLine, instruction, argument);
-        cout<<instruction<<" "+argument<<endl;
+        // cout << instruction << " " + argument << endl;
         processInstruction(instruction, argument);
-        printLocalVariables();
-        printOperandStack();
+        // printLocalVariables();
+        // printOperandStack();
     }
     file.close();
 }
