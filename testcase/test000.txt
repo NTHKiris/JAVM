@@ -1,2 +1,3 @@
-iconst 3
+fconst 2147483500.0
+f2i
 top

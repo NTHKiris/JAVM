@@ -1,0 +1,8 @@
+iconst 8
+istore 0
+fconst 2.5
+fstore 2
+iload 0
+fload 2
+fadd
+top

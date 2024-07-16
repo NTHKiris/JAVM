@@ -25,6 +25,8 @@ private:
     int opStackSize;
     float *localVarArr;
     int localVarSize; 
+    bool* localVarInitialized;
+
    
 
     
@@ -42,8 +44,9 @@ public:
     Element loadFromLocalVar(int index);
     void processInstruction(const std::string & instruction,const std::string &  argument);
     void getElement(const std::string &inputLine, std::string &instruction, std::string &argument);
-    bool isInt(std::string argument);
     int preInstr(std::string instruction);
+    bool isValidNumber(const std::string& s);
+    bool isInt(const std::string& s);
     /*
     Run the method written in the testcase
     @param filename name of the file

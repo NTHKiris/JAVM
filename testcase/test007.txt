@@ -1,0 +1,5 @@
+fconst 3.5
+fstore 4
+fload 4
+fneg
+top

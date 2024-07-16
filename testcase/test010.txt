@@ -1,0 +1,3 @@
+fconst 2.2
+iconst 9
+fload 9

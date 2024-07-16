@@ -3,6 +3,7 @@
 #include <fstream>
 #include "errors.h"
 #include "constants.h"
+#include <iomanip>
 using namespace std;
 void StackFrame::printOperandStack()
 {
@@ -45,39 +46,38 @@ void StackFrame::printLocalVariables()
     }
     cout << "]" << endl;
 }
-bool StackFrame::isInt(string argument)
-{
-    for (char c : argument)
-    {
-        if (c == '.')
-        {
-            return false;
-        }
-    }
-    return true;
-}
+
 StackFrame::StackFrame() : opStackMaxSize(OPERAND_STACK_MAX_SIZE), localVarArrSize(LOCAL_VARIABLE_ARRAY_SIZE)
 {
     line = 0;
     opStackSize = 0;
-    localVarSize = 0;
+    localVarSize = localVarArrSize;
     opStack = new Element[opStackMaxSize];
     localVarArr = new float[localVarArrSize];
+    for (int i = 0; i < localVarArrSize; ++i)
+    {
+        localVarArr[i] = 0.0f;
+    }
+    localVarInitialized = new bool[localVarArrSize / 2];
+    for (int i = 0; i < localVarArrSize / 2; ++i)
+    {
+        localVarInitialized[i] = false;
+    }
 }
 StackFrame::~StackFrame()
 {
     delete[] opStack;
     delete[] localVarArr;
+    delete[] localVarInitialized;
 }
 void StackFrame::pushToOpStack(float value, int type)
 {
-    if (opStackSize >= opStackMaxSize)
+    if (opStackSize >= opStackMaxSize / 2)
     {
         throw StackFull(line);
     }
     opStack[opStackSize].value = static_cast<float>(value);
     opStack[opStackSize].type = type;
-
     opStackSize++;
 }
 StackFrame::Element StackFrame::popFromOpStack()
@@ -106,24 +106,62 @@ void StackFrame::storeToLocalVar(int index, float value, int type)
     }
     localVarArr[index] = type;
     localVarArr[index + 1] = value;
-    if (index + 2 > localVarSize)
-    {
-        localVarSize = index + 2;
-    }
+    localVarInitialized[index / 2] = true;
 }
 StackFrame::Element StackFrame::loadFromLocalVar(int index)
 {
     if (this->localVarSize == 0)
         throw StackEmpty(line);
+    if (!localVarInitialized[index / 2])
+    {
+        throw UndefinedVariable(line);
+    }
     if (index < 0)
     {
         throw ArrayOutOfRange(line);
     }
-    if (static_cast<int>(localVarArr[index * 2]) == 0 && localVarArr[index * 2 + 1] == 0)
+
+    //  cout<<localVarArr[index * 2 + 1]<<" "<< static_cast<int>(localVarArr[index * 2])<<" ";
+    return {localVarArr[index + 1], static_cast<int>(localVarArr[index])};
+}
+bool StackFrame::isValidNumber(const string &s)
+{
+    if (s.empty())
+        return false;
+
+    int start = 0;
+    if (s[0] == '-' || s[0] == '+')
+        start = 1;
+
+    bool hasDecimal = false;
+    for (size_t i = start; i < s.length(); i++)
     {
-        throw UndefinedVariable(line);
+        if (s[i] == '.')
+        {
+            if (hasDecimal)
+                return false;
+            hasDecimal = true;
+        }
+        else if (!isdigit(s[i]))
+        {
+            return false;
+        }
     }
-    return {localVarArr[index * 2 + 1], static_cast<int>(localVarArr[index * 2])};
+
+    return true;
+}
+bool StackFrame::isInt(const std::string &s)
+{
+    if (s.empty())
+        return false;
+    for (size_t i = 0; i < s.length(); i++)
+    {
+        if (s[i] == '.')
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 void StackFrame::processInstruction(const string &instruction, const string &argument)
@@ -134,15 +172,36 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
         if (instruction == "top")
         {
             Element e = topOpStack();
-            cout << e.value << endl;
+            if (e.type == 0)
+            {
+                int x = e.value;
+                cout << x << endl;
+            }
+            else
+            {
+                float x = static_cast<float>(e.value);
+                cout << x << endl;
+            }
         }
         if (instruction == "val")
         {
             int index = stoi(argument);
             if (index < 0 || index % 2 != 0)
                 throw TypeMisMatch(line);
-            Element e = loadFromLocalVar(index);
-            cout << e.value << endl;
+            if (!localVarInitialized[index / 2])
+            {
+                throw UndefinedVariable(line);
+            }
+            if (localVarArr[index] == 0)
+            {
+                int x = localVarArr[index + 1];
+                cout << x << endl;
+            }
+            else
+            {
+                float x = (localVarArr[index + 1]);
+                cout << x << endl;
+            }
         }
     }
     string instruct = instruction.substr(1, instruction.length());
@@ -154,6 +213,10 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
 
         if (instruct == "const")
         {
+            if (!isValidNumber(argument))
+            {
+                throw TypeMisMatch(line);
+            }
 
             if (type == 0)
             {
@@ -163,8 +226,8 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
             }
             else if (type == 1)
             {
-                if (isInt(argument))
-                    throw TypeMisMatch(line);
+                // if (isInt(argument))
+                //     throw TypeMisMatch(line);
                 pushToOpStack(stof(argument), type);
             }
         }
@@ -191,14 +254,13 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
             int index = stoi(argument);
             if (index % 2 == 0)
             {
-                Element e = loadFromLocalVar(index);
-                if (type != e.type)
+                if (type != localVarArr[index])
                     throw TypeMisMatch(line);
-                pushToOpStack(e.value, e.type);
+                pushToOpStack(localVarArr[index + 1], localVarArr[index]);
             }
             else
             {
-                throw TypeMisMatch(line);
+                throw UndefinedVariable(line);
             }
         }
     }
@@ -220,24 +282,11 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
             const float INT_MAX_F = 2147483647.0f;
             const float INT_MIN_F = -2147483648.0f;
 
-            if (e.value > INT_MAX_F || e.value < INT_MIN_F)
+            if (e.value >= INT_MAX_F || e.value <= INT_MIN_F)
             {
                 throw UndefinedVariable(line);
             }
-            int x;
-            if (e.value == 2147483647.0f)
-            {
-                x = 2147483647;
-            }
-            else if (e.value == -2147483648.0f)
-            {
-                x = -2147483648;
-            }
-            else
-            {
-                x = (int)(e.value);
-            }
-
+            int x = static_cast<int>(e.value);
             pushToOpStack(x, 0);
         }
     }
@@ -279,7 +328,14 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
             {
                 throw DivideByZero(line);
             }
-            pushToOpStack(x2 / x1, type);
+            if (type == 0)
+            {
+                pushToOpStack(static_cast<int>(x2 / x1), type);
+            }
+            else
+            {
+                pushToOpStack(x2 / x1, type);
+            }
         }
     }
     if (instruct == "rem" || instruct == "and" || instruct == "or" || instruct == "eq" || instruct == "neq" || instruct == "lt" || instruct == "gt")
@@ -290,9 +346,9 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
         float x1 = e1.value;
         float x2 = e2.value;
 
-        if (type != e1.type)
+        if (type == 0 && e1.type == 1)
             throw TypeMisMatch(line);
-        if (type != e2.type)
+        if (type == 0 && e2.type == 1)
             throw TypeMisMatch(line);
 
         if (instruct == "rem")
@@ -306,51 +362,52 @@ void StackFrame::processInstruction(const string &instruction, const string &arg
         if (instruct == "and")
         {
             int x = (int)x1 & (int)x2;
-            pushToOpStack(x, type);
+            pushToOpStack(x, 0);
         }
 
         if (instruct == "or")
         {
             int x = (int)x1 | (int)x2;
-            pushToOpStack(x, type);
+            pushToOpStack(x, 0);
         }
 
         if (instruct == "eq")
         {
-            int x = (int)x1 == (int)x2 ? 1 : 0;
-            pushToOpStack(x, type);
+            int x = x1 == x2 ? 1 : 0;
+            pushToOpStack(x, 0);
         }
 
         if (instruct == "neq")
         {
-            int x = (int)x1 != (int)x2 ? 1 : 0;
-            pushToOpStack(x, type);
+            int x = x1 != x2 ? 1 : 0;
+            pushToOpStack(x, 0);
         }
 
         if (instruct == "lt")
         {
-            int x = (int)x2 < (int)x1 ? 1 : 0;
-            pushToOpStack(x, type);
+            int x = x2 < x1 ? 1 : 0;
+            pushToOpStack(x, 0);
         }
         if (instruct == "gt")
         {
-            int x = (int)x2 > (int)x1 ? 1 : 0;
-            pushToOpStack(x, type);
+            int x = x2 > x1 ? 1 : 0;
+            pushToOpStack(x, 0);
         }
     }
     if (instruct == "bnot" || instruct == "neg")
     {
         Element e = popFromOpStack();
-        float x = e.type;
-        if (type != e.type)
+        float x = e.value;
+        if (type == 0 && e.type == 1)
             throw TypeMisMatch(line);
+
         if (instruct == "bnot")
         {
             x == 0 ? pushToOpStack(1, type) : pushToOpStack(0, type);
         }
         if (instruct == "neg")
         {
-            pushToOpStack(-e.value, type);
+            pushToOpStack(e.value * -1, type);
         }
     }
 }
@@ -370,16 +427,19 @@ void StackFrame::getElement(const string &inputLine, string &instruction, string
 }
 void StackFrame::run(string filename)
 {
-    // string filepath = "testcase/" + filename;
-    string filepath =  filename;
-    ifstream file(filepath);
-    if (!file.is_open())
+
+    fstream readFile(filename, std::ios::in);
+
+    // string filepath =  filename;
+    // // string filepath =  filename;
+    // ifstream file(filepath);
+    if (!readFile.is_open())
     {
         cout << "Cannot open file " << filename << endl;
         return;
     }
     string inputLine;
-    while (getline(file, inputLine))
+    while (getline(readFile, inputLine))
     {
         line++;
         string instruction = "",
@@ -391,5 +451,5 @@ void StackFrame::run(string filename)
         // printLocalVariables();
         // printOperandStack();
     }
-    file.close();
+    readFile.close();
 }

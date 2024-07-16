@@ -1,0 +1,13 @@
+iconst 5
+istore 0
+iconst 10
+istore 2
+iload 0
+iload 2
+iadd
+top
+fconst 3.5
+fstore 4
+fload 4
+fneg
+top
